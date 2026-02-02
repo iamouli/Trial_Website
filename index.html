@@ -2,83 +2,373 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Two Dynamic Name Lists</title>
+  <title>Group Manager</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
+      background: #f5f5f5;
     }
 
-    .container {
+    h1, h2, h3 {
+      margin-top: 0;
+    }
+
+    #app {
+      display: none; /* hidden until password is correct */
+    }
+
+    .login-box {
+      max-width: 320px;
+      margin: 80px auto;
+      padding: 20px;
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      box-sizing: border-box;
+    }
+
+    .login-box button {
+      width: 100%;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    .top-bar {
       display: flex;
-      gap: 40px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
     }
 
-    .list-block {
+    .groups-container {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .group {
       flex: 1;
+      background: #ffffff;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .group-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .group-header button {
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .group-header .capacity {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .group.active {
+      border: 2px solid #007bff;
     }
 
     ul {
-      padding-left: 20px;
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      max-height: 260px;
+      overflow-y: auto;
     }
 
-    button {
-      margin-bottom: 20px;
-      padding: 8px 16px;
+    li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
       font-size: 14px;
+    }
+
+    li button {
+      margin-left: 8px;
+      padding: 2px 6px;
+      font-size: 11px;
       cursor: pointer;
+    }
+
+    .waiting-list {
+      background: #ffffff;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .waiting-meta {
+      font-size: 11px;
+      color: #666;
     }
   </style>
 </head>
 <body>
-  <h1>Dynamic Name Lists</h1>
-  <button id="generateButton">Generate 2×25 Names</button>
+  <!-- Password gate -->
+  <div id="login" class="login-box">
+    <h2>Enter Password</h2>
+    <input type="password" id="passwordInput" placeholder="Password" />
+    <button id="loginButton">Enter</button>
+    <p id="loginError" style="color:red; font-size:12px; display:none;">Incorrect password.</p>
+  </div>
 
-  <div class="container">
-    <div class="list-block">
-      <h2>List A</h2>
-      <ul id="listA"></ul>
+  <!-- Main app -->
+  <div id="app">
+    <div class="top-bar">
+      <h1>Group Manager</h1>
+      <div>
+        Active group:
+        <strong id="activeGroupLabel">Group A</strong>
+      </div>
     </div>
-    <div class="list-block">
-      <h2>List B</h2>
-      <ul id="listB"></ul>
+
+    <div class="groups-container">
+      <!-- Group A -->
+      <div class="group" id="groupAContainer">
+        <div class="group-header">
+          <div>
+            <h2 style="display:inline;">Group A</h2>
+            <span class="capacity" id="groupACapacity"></span>
+          </div>
+          <button data-group="A" class="activateBtn">Set Active</button>
+        </div>
+        <ul id="groupAList"></ul>
+      </div>
+
+      <!-- Group B -->
+      <div class="group" id="groupBContainer">
+        <div class="group-header">
+          <div>
+            <h2 style="display:inline;">Group B</h2>
+            <span class="capacity" id="groupBCapacity"></span>
+          </div>
+          <button data-group="B" class="activateBtn">Set Active</button>
+        </div>
+        <ul id="groupBList"></ul>
+      </div>
+    </div>
+
+    <!-- Waiting list -->
+    <div class="waiting-list">
+      <h3>Waiting List (for active group when full)</h3>
+      <ul id="waitingList"></ul>
     </div>
   </div>
 
   <script>
-    const baseNames = [
-      "Alice", "Bob", "Charlie", "Diana", "Ethan",
-      "Fiona", "George", "Hannah", "Ian", "Julia",
-      "Kevin", "Laura", "Mike", "Nina", "Oscar",
-      "Paula", "Quentin", "Rachel", "Sam", "Tina",
-      "Ursula", "Victor", "Wendy", "Xavier", "Yvonne",
-      "Zack"
-    ];
+    // ===== Basic password gate (client-side only) =====
+    const CORRECT_PASSWORD = "test123"; // change this to what you want
 
-    function getRandomName() {
-      const index = Math.floor(Math.random() * baseNames.length);
-      return baseNames[index];
-    }
+    const loginDiv = document.getElementById("login");
+    const appDiv = document.getElementById("app");
+    const passwordInput = document.getElementById("passwordInput");
+    const loginButton = document.getElementById("loginButton");
+    const loginError = document.getElementById("loginError");
 
-    function fillList(elementId, count) {
-      const ul = document.getElementById(elementId);
-      ul.innerHTML = "";
-      for (let i = 0; i < count; i++) {
-        const li = document.createElement("li");
-        li.textContent = getRandomName();
-        ul.appendChild(li);
+    loginButton.addEventListener("click", () => {
+      const value = passwordInput.value;
+      if (value === CORRECT_PASSWORD) {
+        loginDiv.style.display = "none";
+        appDiv.style.display = "block";
+      } else {
+        loginError.style.display = "block";
       }
+    });
+
+    passwordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        loginButton.click();
+      }
+    });
+
+    // ===== Group logic =====
+    const MAX_CAPACITY = 25;
+
+    let activeGroup = "A";
+
+    const groupAContainer = document.getElementById("groupAContainer");
+    const groupBContainer = document.getElementById("groupBContainer");
+    const groupAListEl = document.getElementById("groupAList");
+    const groupBListEl = document.getElementById("groupBList");
+    const waitingListEl = document.getElementById("waitingList");
+    const activeGroupLabel = document.getElementById("activeGroupLabel");
+    const groupACapacityEl = document.getElementById("groupACapacity");
+    const groupBCapacityEl = document.getElementById("groupBCapacity");
+
+    // Example initial names (you can change these)
+    const initialNamesA = [];
+    const initialNamesB = [];
+    for (let i = 1; i <= MAX_CAPACITY; i++) {
+      initialNamesA.push("A Person " + i);
+      initialNamesB.push("B Person " + i);
     }
 
-    document.getElementById("generateButton").addEventListener("click", function () {
-      fillList("listA", 25);
-      fillList("listB", 25);
+    const state = {
+      A: initialNamesA.map((name) => ({ name })),
+      B: initialNamesB.map((name) => ({ name })),
+      waiting: [] // { name, fromGroup, timestamp }
+    };
+
+    function formatTimestamp(date) {
+      const d = new Date(date);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mi = String(d.getMinutes()).padStart(2, "0");
+      const ss = String(d.getSeconds()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+    }
+
+    function renderGroups() {
+      // Clear
+      groupAListEl.innerHTML = "";
+      groupBListEl.innerHTML = "";
+
+      // Render Group A
+      state.A.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.textContent = item.name;
+
+        if (activeGroup === "A") {
+          const removeBtn = document.createElement("button");
+          removeBtn.textContent = "Remove";
+          removeBtn.addEventListener("click", () =>
+            removeFromActive("A", index)
+          );
+          li.appendChild(removeBtn);
+
+          // From B to A is not relevant here; additions come from the other group
+        } else {
+          // Active group = B; entries in A can be added to B
+          const addBtn = document.createElement("button");
+          addBtn.textContent = "Add to Group B";
+          addBtn.addEventListener("click", () =>
+            moveToActive("A", "B", index)
+          );
+          li.appendChild(addBtn);
+        }
+
+        groupAListEl.appendChild(li);
+      });
+
+      // Render Group B
+      state.B.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.textContent = item.name;
+
+        if (activeGroup === "B") {
+          const removeBtn = document.createElement("button");
+          removeBtn.textContent = "Remove";
+          removeBtn.addEventListener("click", () =>
+            removeFromActive("B", index)
+          );
+          li.appendChild(removeBtn);
+        } else {
+          // Active group = A; entries in B can be added to A
+          const addBtn = document.createElement("button");
+          addBtn.textContent = "Add to Group A";
+          addBtn.addEventListener("click", () =>
+            moveToActive("B", "A", index)
+          );
+          li.appendChild(addBtn);
+        }
+
+        groupBListEl.appendChild(li);
+      });
+
+      // Capacity labels
+      groupACapacityEl.textContent = `(${state.A.length}/${MAX_CAPACITY})`;
+      groupBCapacityEl.textContent = `(${state.B.length}/${MAX_CAPACITY})`;
+
+      // Active highlight
+      if (activeGroup === "A") {
+        groupAContainer.classList.add("active");
+        groupBContainer.classList.remove("active");
+      } else {
+        groupBContainer.classList.add("active");
+        groupAContainer.classList.remove("active");
+      }
+
+      activeGroupLabel.textContent =
+        activeGroup === "A" ? "Group A" : "Group B";
+
+      renderWaitingList();
+    }
+
+    function renderWaitingList() {
+      waitingListEl.innerHTML = "";
+      state.waiting.forEach((entry) => {
+        const li = document.createElement("li");
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = entry.name;
+
+        const metaSpan = document.createElement("span");
+        metaSpan.className = "waiting-meta";
+        metaSpan.textContent =
+          `from ${entry.fromGroup} at ${formatTimestamp(entry.timestamp)}`;
+
+        li.appendChild(nameSpan);
+        li.appendChild(metaSpan);
+        waitingListEl.appendChild(li);
+      });
+    }
+
+    function removeFromActive(group, index) {
+      state[group].splice(index, 1);
+      renderGroups();
+    }
+
+    function moveToActive(sourceGroup, targetGroup, index) {
+      const targetArr = state[targetGroup];
+      const sourceArr = state[sourceGroup];
+      const item = sourceArr[index];
+
+      if (targetArr.length < MAX_CAPACITY) {
+        // Move directly into target group
+        targetArr.push(item);
+        sourceArr.splice(index, 1);
+      } else {
+        // Target full => waiting list with timestamp
+        state.waiting.push({
+          name: item.name,
+          fromGroup: sourceGroup === "A" ? "Group A" : "Group B",
+          timestamp: Date.now()
+        });
+        sourceArr.splice(index, 1);
+      }
+
+      renderGroups();
+    }
+
+    // Activate group buttons
+    document.querySelectorAll(".activateBtn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const group = btn.getAttribute("data-group");
+        activeGroup = group;
+        renderGroups();
+      });
     });
 
-    window.addEventListener("load", function () {
-      fillList("listA", 25);
-      fillList("listB", 25);
-    });
+    // Initialize
+    renderGroups();
   </script>
 </body>
 </html>
